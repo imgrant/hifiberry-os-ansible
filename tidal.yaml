@@ -1,0 +1,89 @@
+---
+- name: Configure & deploy TIDAL Connect container for HiFiBerryOS
+  hosts: all
+
+  tasks:
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+
+    - name: Ensure container dir exists
+      ansible.builtin.file:
+        path: /data/docker
+        state: directory
+
+    - name: Ensure TIDAL container dir exists
+      ansible.builtin.file:
+        path: /data/docker/tidal
+        state: directory
+
+    - name: Copy TIDAL Connect docker-compose file
+      ansible.builtin.template:
+        src: tidal-docker-compose.yml.j2
+        dest: /data/docker/tidal/docker-compose.yml
+      notify:
+        - Restart TIDAL Connect
+    
+    - name: Copy TIDAL Connect container entrypoint script
+      ansible.builtin.copy:
+        src: tidal-entrypoint.sh
+        dest: /data/docker/tidal/entrypoint.sh
+        mode: u=rwx,g=rx,o=rx
+      notify:
+        - Restart TIDAL Connect
+
+    - name: Configure TIDAL Connect environment variables
+      ansible.builtin.template:
+        src: env-file.j2
+        dest: /data/docker/tidal/.env
+      notify:
+        - Restart TIDAL Connect
+
+    - name: Clone TIDAL Connect repo for HiFiBerryOS/Beocreate integration
+      ansible.builtin.git:
+        repo: https://github.com/TonyTromp/tidal-connect-docker.git
+        dest: /data/tidal-connect-docker
+      notify:
+        - Restart Beocreate UI
+
+    - name: Install Beocreate UI extension for TIDAL Connect
+      ansible.builtin.file:
+        src: /data/tidal-connect-docker/beocreate/beo-extensions/tidal
+        dest: /opt/beocreate/beo-extensions/tidal
+        state: link
+      notify:
+        - Restart Beocreate UI
+
+    - name: Install systemd unit file for TIDAL Connect service
+      ansible.builtin.copy:
+        src: tidal-systemd.service
+        dest: /etc/systemd/system/tidal.service
+      notify:
+        - Reload systemd
+        - Enable TIDAL Connect
+        - Restart TIDAL Connect
+
+  handlers:
+    - name: Reload systemd config
+      listen: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+    
+    - name: Repopulate service facts
+      listen: Reload systemd
+      ansible.builtin.service_facts:
+
+    - name: Enable TIDAL Connect
+      ansible.builtin.systemd:
+        name: tidal.service
+        enabled: yes
+
+    - name: Restart TIDAL Connect
+      ansible.builtin.systemd:
+        name: tidal.service
+        state: restarted
+      when: "ansible_facts.services['tidal.service'].status == 'enabled'"
+
+    - name: Restart Beocreate UI
+      ansible.builtin.systemd:
+        name: beocreate2.service
+        state: restarted

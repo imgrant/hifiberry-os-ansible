@@ -1,0 +1,4 @@
+*.retry
+inventory.yaml
+group_vars/*.yaml
+host_vars/*.yaml

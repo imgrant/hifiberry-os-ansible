@@ -1,0 +1,15 @@
+[Unit]
+Description=TIDAL Connect
+After=docker.service network-online.target
+Requires=docker.service network-online.target
+
+[Service]
+WorkingDirectory=/data/docker/tidal
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/docker-compose up -d
+ExecStop=/bin/docker-compose down
+ExecReload=/bin/docker-compose up -d
+
+[Install]
+WantedBy=multi-user.target
