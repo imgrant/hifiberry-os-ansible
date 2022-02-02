@@ -5,6 +5,7 @@ services:
     container_name: tidal_connect
     env_file:
       - .env
+      - /etc/hifiberry.state
     image: edgecrush3r/tidal-connect:latest
     tty: true
     network_mode: host
